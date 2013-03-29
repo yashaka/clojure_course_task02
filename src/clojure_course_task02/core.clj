@@ -15,27 +15,21 @@
 
 (defn find-files [file-name path]
   (let [[dirs files] (dirs-and-files path)]
-
-    (->> dirs
-         (map #(.getPath %))
-         (map #(future (find-files file-name %)))
-         (map deref)
-         (concat (->> files
-                      (map #(.getName %))
-                      (filter #(re-find (re-pattern file-name) %))))
-         (flatten))))
-
-(defn pfind-files [file-name path]
-  (let [[dirs files] (dirs-and-files path)]
     (->> files
          (map #(.getName %))
          (filter #(re-find (re-pattern file-name) %))
          (concat (->> dirs
                       (map #(.getPath %))
                       (map #(future (find-files file-name %)))
-                      (map deref)
-                      (flatten))))))
-
+                      (mapcat deref)
+                      ;(mapcat #(find-files file-name %))
+                      )))))
+(comment 
+  (time (dotimes [_ 1e3] (find-files "^core.+" "./")))
+  ;= "Elapsed time: 2097.048 msecs"
+  ;without optimization:
+  ;= "Elapsed time: 1336.011 msecs"
+  )
 
 (defn usage []
   (println "Usage: $ run.sh file_name path"))
