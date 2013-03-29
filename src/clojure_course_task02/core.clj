@@ -10,25 +10,37 @@
 
 (defn dirs-and-files [path]
   (->> 
-    (seq (.listFiles (io/file path)))
+    (.listFiles (io/file path))
     (separate #(.isDirectory %))))
 
+;; "simple" find-files, i.e. without parallel optimization
+(defn sfind-files [file-name path]
+  (let [[dirs files] (dirs-and-files path)
+        matched-files (->> files
+                           (map #(.getName %))
+                           (filter #(re-find (re-pattern file-name) %)))]
+         (concat matched-files
+                 (->> dirs
+                      (map #(.getPath %))
+                      (mapcat #(sfind-files file-name %))))))
+
+;; find-files with parallel optimization
 (defn find-files [file-name path]
-  (let [[dirs files] (dirs-and-files path)]
-    (->> files
-         (map #(.getName %))
-         (filter #(re-find (re-pattern file-name) %))
-         (concat (->> dirs
+  (let [[dirs files] (dirs-and-files path)
+        matched-files (->> files
+                           (map #(.getName %))
+                           (filter #(re-find (re-pattern file-name) %)))]
+         (concat matched-files
+                 (->> dirs
                       (map #(.getPath %))
                       (map #(future (find-files file-name %)))
-                      (mapcat deref)
-                      ;(mapcat #(find-files file-name %))
-                      )))))
+                      (mapcat deref)))))
+
 (comment 
-  (time (dotimes [_ 1e3] (find-files "^core.+" "./")))
-  ;= "Elapsed time: 2097.048 msecs"
-  ;without optimization:
-  ;= "Elapsed time: 1336.011 msecs"
+  (time (dotimes [_ 1e2] (find-files "java" "/Users/ayia/Projects")))
+  ;= "Elapsed time: 600.96 msecs"
+  (time (dotimes [_ 1e2] (sfind-files "java" "/Users/ayia/Projects")))
+  ;= "Elapsed time: 380.918 msecs"
   )
 
 (defn usage []
