@@ -16,25 +16,25 @@
 ;; "simple" find-files, i.e. without parallel optimization
 (defn sfind-files [file-name path]
   (let [[dirs files] (dirs-and-files path)
-        matched-files (->> files
-                           (map #(.getName %))
-                           (filter #(re-find (re-pattern file-name) %)))]
-         (concat matched-files
-                 (->> dirs
-                      (map #(.getPath %))
-                      (mapcat #(sfind-files file-name %))))))
+        matched-files  (->> files
+                            (map #(.getName %))
+                            (filter #(re-find (re-pattern file-name) %)))
+        children-files (->> dirs
+                            (map #(.getPath %))
+                            (mapcat #(sfind-files file-name %)))]
+         (concat matched-files children-files)))
 
 ;; find-files with parallel optimization
 (defn find-files [file-name path]
   (let [[dirs files] (dirs-and-files path)
-        matched-files (->> files
-                           (map #(.getName %))
-                           (filter #(re-find (re-pattern file-name) %)))]
-         (concat matched-files
-                 (->> dirs
-                      (map #(.getPath %))
-                      (map #(future (find-files file-name %)))
-                      (mapcat deref)))))
+        matched-files  (->> files
+                            (map #(.getName %))
+                            (filter #(re-find (re-pattern file-name) %)))
+        children-files (->> dirs
+                            (map #(.getPath %))
+                            (map #(future (find-files file-name %)))
+                            (mapcat deref))]
+         (concat matched-files children-files)))
 
 (comment 
   (time (dotimes [_ 1e2] (find-files "java" "/Users/ayia/Projects")))
